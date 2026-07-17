@@ -3,10 +3,10 @@ import Card from '../components/common/Card';
 import Button from '../components/common/Button';
 import Input from '../components/common/Input';
 import Select from '../components/common/Select';
-import Modal from '../components/common/Modal';
+import Alert from '../components/common/Alert';
 import ProductTable from '../components/products/ProductTable';
-import ProductForm from '../components/products/ProductForm';
-import { Plus, Search } from 'lucide-react';
+import ProductModal from '../components/products/ProductModal';
+import { Plus, Search, Package } from 'lucide-react';
 
 const initialProducts = [
   { _id: '1', name: 'Laptop Pro 15"', category: 'Tecnología', price: 1299.99, stock: 15, minStock: 5 },
@@ -29,8 +29,13 @@ const ProductsPage = () => {
   const [selectedCategory, setSelectedCategory] = useState('');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingProduct, setEditingProduct] = useState(null);
+  const [notification, setNotification] = useState(null);
 
-  // Filtrar productos localmente para la demostración del Sprint 1
+  const showNotification = (type, message) => {
+    setNotification({ type, message });
+    setTimeout(() => setNotification(null), 3000);
+  };
+
   const filteredProducts = products.filter((prod) => {
     const matchesSearch = prod.name.toLowerCase().includes(search.toLowerCase());
     const matchesCategory = selectedCategory ? prod.category === selectedCategory : true;
@@ -50,24 +55,25 @@ const ProductsPage = () => {
   const handleDeleteProduct = (product) => {
     if (window.confirm(`¿Está seguro de que desea eliminar el producto "${product.name}"?`)) {
       setProducts(products.filter((p) => p._id !== product._id));
+      showNotification('success', `Producto "${product.name}" eliminado.`);
     }
   };
 
   const handleFormSubmit = (formData) => {
     if (editingProduct) {
-      // Editar
-      setProducts(products.map((p) => 
-        p._id === editingProduct._id 
-          ? { ...p, ...formData } 
+      setProducts(products.map((p) =>
+        p._id === editingProduct._id
+          ? { ...p, ...formData }
           : p
       ));
+      showNotification('success', `Producto "${formData.name}" actualizado.`);
     } else {
-      // Crear
       const newProduct = {
         _id: String(Date.now()),
         ...formData,
       };
       setProducts([...products, newProduct]);
+      showNotification('success', `Producto "${formData.name}" creado.`);
     }
     setIsModalOpen(false);
   };
@@ -77,11 +83,21 @@ const ProductsPage = () => {
     label: cat.name,
   }));
 
+  const totalProducts = products.length;
+  const lowStockCount = products.filter((p) => p.stock > 0 && p.stock <= p.minStock).length;
+  const outOfStockCount = products.filter((p) => p.stock === 0).length;
+
   return (
     <div className="space-y-6">
+      {notification && (
+        <Alert type={notification.type} message={notification.message} />
+      )}
+
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight text-slate-800 dark:text-slate-100">Gestión de Productos</h1>
+          <h1 className="text-2xl font-bold tracking-tight text-slate-800 dark:text-slate-100">
+            Gestión de Productos
+          </h1>
           <p className="text-sm text-slate-500 dark:text-slate-400">
             Administra los productos de tu inventario, sus categorías y sus niveles de stock.
           </p>
@@ -90,6 +106,37 @@ const ProductsPage = () => {
           <Plus size={18} />
           Nuevo Producto
         </Button>
+      </div>
+
+      {/* Resumen rápido */}
+      <div className="grid gap-4 sm:grid-cols-3">
+        <Card className="p-4 flex items-center gap-3">
+          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-indigo-100 dark:bg-indigo-900/30">
+            <Package size={20} className="text-indigo-600 dark:text-indigo-400" />
+          </div>
+          <div>
+            <p className="text-2xl font-bold text-slate-800 dark:text-slate-100">{totalProducts}</p>
+            <p className="text-xs text-slate-500 dark:text-slate-400">Total productos</p>
+          </div>
+        </Card>
+        <Card className="p-4 flex items-center gap-3">
+          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-amber-100 dark:bg-amber-900/30">
+            <span className="text-lg font-bold text-amber-600 dark:text-amber-400">!</span>
+          </div>
+          <div>
+            <p className="text-2xl font-bold text-slate-800 dark:text-slate-100">{lowStockCount}</p>
+            <p className="text-xs text-slate-500 dark:text-slate-400">Bajo stock</p>
+          </div>
+        </Card>
+        <Card className="p-4 flex items-center gap-3">
+          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-red-100 dark:bg-red-900/30">
+            <span className="text-lg font-bold text-red-600 dark:text-red-400">0</span>
+          </div>
+          <div>
+            <p className="text-2xl font-bold text-slate-800 dark:text-slate-100">{outOfStockCount}</p>
+            <p className="text-xs text-slate-500 dark:text-slate-400">Agotados</p>
+          </div>
+        </Card>
       </div>
 
       {/* Barra de Filtros */}
@@ -112,25 +159,21 @@ const ProductsPage = () => {
       </Card>
 
       {/* Tabla de Productos */}
-      <ProductTable 
-        products={filteredProducts} 
-        onEdit={handleOpenEditModal} 
-        onDelete={handleDeleteProduct} 
+      <ProductTable
+        products={filteredProducts}
+        onEdit={handleOpenEditModal}
+        onDelete={handleDeleteProduct}
       />
 
-      {/* Modal de Formulario */}
-      <Modal 
-        isOpen={isModalOpen} 
-        onClose={() => setIsModalOpen(false)} 
+      {/* Modal de Producto */}
+      <ProductModal
+        isOpen={isModalOpen}
+        onClose={() => setIsModalOpen(false)}
         title={editingProduct ? 'Editar Producto' : 'Crear Producto'}
-      >
-        <ProductForm 
-          product={editingProduct} 
-          categories={categories}
-          onSubmit={handleFormSubmit}
-          onCancel={() => setIsModalOpen(false)}
-        />
-      </Modal>
+        product={editingProduct}
+        categories={categories}
+        onSubmit={handleFormSubmit}
+      />
     </div>
   );
 };
