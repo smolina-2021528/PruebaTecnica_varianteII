@@ -1,0 +1,24 @@
+{
+    "name":  "inventory-system",
+    "version":  "1.0.0",
+    "private":  true,
+    "workspaces":  [
+                       "frontend",
+                       "service-auth",
+                       "service-inventory",
+                       "service-reports"
+                   ],
+    "scripts":  {
+                    "dev":  "concurrently -n FRONTEND,AUTH,INVENTORY,REPORTS -c auto \"npm run dev --workspace frontend\" \"npm run dev --workspace service-auth\" \"npm run dev --workspace service-inventory\" \"npm run dev --workspace service-reports\"",
+                    "dev:frontend":  "npm run dev --workspace frontend",
+                    "dev:auth":  "npm run dev --workspace service-auth",
+                    "dev:inventory":  "npm run dev --workspace service-inventory",
+                    "dev:reports":  "npm run dev --workspace service-reports",
+                    "build:frontend":  "npm run build --workspace frontend",
+                    "docker:up":  "docker compose up -d mongodb",
+                    "docker:down":  "docker compose down"
+                },
+    "devDependencies":  {
+                            "concurrently":  "^9.1.2"
+                        }
+}
