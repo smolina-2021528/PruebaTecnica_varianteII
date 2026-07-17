@@ -31,12 +31,12 @@ const movementSchema = new Schema(
     previousStock: {
       type: Number,
       required: true,
-      min: [0, 'El stock anterior debe ser mayor o igual a cero'],
+      min: [0, 'El stock anterior debe ser mayor o igual a 0'],
     },
     newStock: {
       type: Number,
       required: true,
-      min: [0, 'El stock nuevo debe ser mayor o igual a cero'],
+      min: [0, 'El stock nuevo debe ser mayor o igual a 0'],
     },
   },
   { timestamps: true },

@@ -1,11 +1,29 @@
 import { sendError } from '../utils/httpResponse.js';
 
+function getDuplicateField(error) {
+  const field = Object.keys(error.keyValue || {})[0];
+
+  if (!field) {
+    return 'El recurso';
+  }
+
+  const readableFields = {
+    name: 'El nombre',
+    email: 'El correo',
+    category: 'La categoría',
+  };
+
+  return readableFields[field] || `El campo ${field}`;
+}
+
 export function errorHandler(error, _req, res, _next) {
   console.error(error);
 
-  // Validaciones de esquema de Mongoose (nombre/categoría obligatorios, precio < 0, etc.)
   if (error.name === 'ValidationError') {
-    const errors = Object.values(error.errors).map((e) => e.message);
+    const errors = Object.values(error.errors).map((validationError) => ({
+      field: validationError.path,
+      message: validationError.message,
+    }));
 
     return sendError(res, {
       status: 400,
@@ -14,21 +32,29 @@ export function errorHandler(error, _req, res, _next) {
     });
   }
 
-  // ObjectId con formato incorrecto (por ejemplo en :id de la URL).
   if (error.name === 'CastError') {
     return sendError(res, {
       status: 400,
       message: 'Identificador no válido',
-      errors: [],
+      errors: [
+        {
+          field: error.path,
+          value: error.value,
+        },
+      ],
     });
   }
 
-  // Violación de índice único (por ejemplo categoría duplicada).
   if (error.code === 11000) {
     return sendError(res, {
       status: 409,
-      message: 'El recurso ya existe',
-      errors: [],
+      message: `${getDuplicateField(error)} ya existe`,
+      errors: [
+        {
+          field: Object.keys(error.keyValue || {})[0],
+          value: Object.values(error.keyValue || {})[0],
+        },
+      ],
     });
   }
 

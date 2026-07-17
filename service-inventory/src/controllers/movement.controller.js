@@ -5,6 +5,12 @@ import { sendSuccess } from '../utils/httpResponse.js';
 import { HttpError } from '../utils/HttpError.js';
 import { asyncHandler } from '../utils/asyncHandler.js';
 
+function validateProductId(productId) {
+  if (!mongoose.isValidObjectId(productId)) {
+    throw new HttpError(400, 'ID de producto inválido');
+  }
+}
+
 function parsePositiveIntegerQuantity(value) {
   const quantity = Number(value);
 
@@ -15,10 +21,14 @@ function parsePositiveIntegerQuantity(value) {
   return quantity;
 }
 
-function validateProductId(productId) {
-  if (!mongoose.isValidObjectId(productId)) {
-    throw new HttpError(400, 'ID inválido');
+function normalizeMovementType(type) {
+  const normalizedType = String(type || '').toUpperCase();
+
+  if (!['ENTRY', 'OUTPUT'].includes(normalizedType)) {
+    throw new HttpError(400, 'Tipo de movimiento inválido');
   }
+
+  return normalizedType;
 }
 
 export const createEntry = asyncHandler(async (req, res) => {
@@ -99,13 +109,7 @@ export const listMovements = asyncHandler(async (req, res) => {
   const filter = {};
 
   if (type) {
-    const normalizedType = String(type).toUpperCase();
-
-    if (!['ENTRY', 'OUTPUT'].includes(normalizedType)) {
-      throw new HttpError(400, 'Tipo de movimiento inválido');
-    }
-
-    filter.type = normalizedType;
+    filter.type = normalizeMovementType(type);
   }
 
   if (productId) {

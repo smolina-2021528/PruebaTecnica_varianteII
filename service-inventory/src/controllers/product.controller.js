@@ -4,17 +4,67 @@ import { sendSuccess } from '../utils/httpResponse.js';
 import { HttpError } from '../utils/HttpError.js';
 import { asyncHandler } from '../utils/asyncHandler.js';
 
-// POST /api/products
-export const createProduct = asyncHandler(async (req, res) => {
-  const { name, category, price, stock = 0, minStock = 5 } = req.body;
+function validateObjectId(id, message = 'El identificador del producto no es válido') {
+  if (!mongoose.isValidObjectId(id)) {
+    throw new HttpError(400, message);
+  }
+}
 
-  const product = await Product.create({
-    name,
-    category,
-    price,
-    stock,
-    minStock,
-  });
+function normalizeRequiredString(value, fieldName) {
+  const normalizedValue = String(value || '').trim();
+
+  if (!normalizedValue) {
+    throw new HttpError(400, `${fieldName} es obligatorio`);
+  }
+
+  return normalizedValue;
+}
+
+function parseNonNegativeNumber(value, fieldName) {
+  const number = Number(value);
+
+  if (!Number.isFinite(number) || number < 0) {
+    throw new HttpError(400, `${fieldName} debe ser un número mayor o igual a 0`);
+  }
+
+  return number;
+}
+
+function parseNonNegativeInteger(value, fieldName) {
+  const number = Number(value);
+
+  if (!Number.isInteger(number) || number < 0) {
+    throw new HttpError(400, `${fieldName} debe ser un entero mayor o igual a 0`);
+  }
+
+  return number;
+}
+
+function buildProductPayload(body, { isUpdate = false } = {}) {
+  const payload = {
+    name: normalizeRequiredString(body.name, 'El nombre'),
+    category: normalizeRequiredString(body.category, 'La categoría'),
+    price: parseNonNegativeNumber(body.price, 'El precio'),
+    minStock: parseNonNegativeInteger(
+      body.minStock ?? 5,
+      'El stock mínimo',
+    ),
+  };
+
+  if (!isUpdate) {
+    payload.stock = parseNonNegativeInteger(
+      body.stock ?? 0,
+      'El stock inicial',
+    );
+  }
+
+  return payload;
+}
+
+export const createProduct = asyncHandler(async (req, res) => {
+  const productPayload = buildProductPayload(req.body);
+
+  const product = await Product.create(productPayload);
 
   return sendSuccess(res, {
     status: 201,
@@ -23,18 +73,20 @@ export const createProduct = asyncHandler(async (req, res) => {
   });
 });
 
-// GET /api/products?search=texto&category=nombre
 export const listProducts = asyncHandler(async (req, res) => {
   const { search, category } = req.query;
 
   const filter = {};
 
-  if (search) {
-    filter.name = { $regex: search, $options: 'i' }; // case insensitive
+  if (search && String(search).trim()) {
+    filter.name = {
+      $regex: String(search).trim(),
+      $options: 'i',
+    };
   }
 
-  if (category) {
-    filter.category = category;
+  if (category && String(category).trim()) {
+    filter.category = String(category).trim();
   }
 
   const products = await Product.find(filter).sort({ createdAt: -1 });
@@ -45,13 +97,10 @@ export const listProducts = asyncHandler(async (req, res) => {
   });
 });
 
-// GET /api/products/:id
 export const getProductById = asyncHandler(async (req, res) => {
   const { id } = req.params;
 
-  if (!mongoose.isValidObjectId(id)) {
-    throw new HttpError(400, 'El identificador del producto no es válido');
-  }
+  validateObjectId(id);
 
   const product = await Product.findById(id);
 
@@ -65,19 +114,20 @@ export const getProductById = asyncHandler(async (req, res) => {
   });
 });
 
-// PUT /api/products/:id
 export const updateProduct = asyncHandler(async (req, res) => {
   const { id } = req.params;
-  const { name, category, price, minStock } = req.body;
 
-  if (!mongoose.isValidObjectId(id)) {
-    throw new HttpError(400, 'El identificador del producto no es válido');
-  }
+  validateObjectId(id);
+
+  const productPayload = buildProductPayload(req.body, { isUpdate: true });
 
   const product = await Product.findByIdAndUpdate(
     id,
-    { name, category, price, minStock },
-    { new: true, runValidators: true }
+    productPayload,
+    {
+      new: true,
+      runValidators: true,
+    },
   );
 
   if (!product) {
@@ -90,13 +140,10 @@ export const updateProduct = asyncHandler(async (req, res) => {
   });
 });
 
-// DELETE /api/products/:id
 export const deleteProduct = asyncHandler(async (req, res) => {
   const { id } = req.params;
 
-  if (!mongoose.isValidObjectId(id)) {
-    throw new HttpError(400, 'El identificador del producto no es válido');
-  }
+  validateObjectId(id);
 
   const product = await Product.findByIdAndDelete(id);
 

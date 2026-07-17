@@ -5,8 +5,18 @@ import { sendSuccess } from '../utils/httpResponse.js';
 import { HttpError } from '../utils/HttpError.js';
 import { asyncHandler } from '../utils/asyncHandler.js';
 
+function escapeRegex(value) {
+  return String(value).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
 function normalizeCategoryName(name) {
   return String(name || '').trim();
+}
+
+function validateCategoryId(id) {
+  if (!mongoose.isValidObjectId(id)) {
+    throw new HttpError(400, 'ID de categoría inválido');
+  }
 }
 
 export const listCategories = asyncHandler(async (_req, res) => {
@@ -25,6 +35,17 @@ export const createCategory = asyncHandler(async (req, res) => {
     throw new HttpError(400, 'El nombre de la categoría es obligatorio');
   }
 
+  const duplicatedCategory = await Category.findOne({
+    name: {
+      $regex: `^${escapeRegex(name)}$`,
+      $options: 'i',
+    },
+  });
+
+  if (duplicatedCategory) {
+    throw new HttpError(409, 'La categoría ya existe');
+  }
+
   const category = await Category.create({ name });
 
   return sendSuccess(res, {
@@ -37,9 +58,7 @@ export const createCategory = asyncHandler(async (req, res) => {
 export const deleteCategory = asyncHandler(async (req, res) => {
   const { id } = req.params;
 
-  if (!mongoose.isValidObjectId(id)) {
-    throw new HttpError(400, 'ID de categoría inválido');
-  }
+  validateCategoryId(id);
 
   const category = await Category.findById(id);
 
@@ -48,7 +67,10 @@ export const deleteCategory = asyncHandler(async (req, res) => {
   }
 
   const productUsingCategory = await Product.exists({
-    category: category.name,
+    category: {
+      $regex: `^${escapeRegex(category.name)}$`,
+      $options: 'i',
+    },
   });
 
   if (productUsingCategory) {
