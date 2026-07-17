@@ -1,11 +1,9 @@
 import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import Card from '../components/common/Card';
-import Input from '../components/common/Input';
-import Button from '../components/common/Button';
-import Alert from '../components/common/Alert';
+import { Package, Mail, Lock } from 'lucide-react';
 import { authApi } from '../services/api';
+import Alert from '../components/common/Alert';
 
 const LoginPage = () => {
   const { login } = useAuth();
@@ -26,13 +24,10 @@ const LoginPage = () => {
     setError('');
 
     try {
-      // Petición real al Servicio Auth
       const response = await authApi.post('/auth/login', { email, password });
-      
       const { success, data, message } = response.data;
       
       if (success && data?.token) {
-        // Guardar sesión y redirigir
         login(data.token, data.user);
         navigate('/dashboard');
       } else {
@@ -40,7 +35,6 @@ const LoginPage = () => {
       }
     } catch (err) {
       console.error('Error de login:', err);
-      // Extraer mensaje detallado de error del backend si existe
       const backendMessage = err.response?.data?.message || 'No se pudo conectar con el servidor de autenticación. Verifica que el servicio esté corriendo.';
       setError(backendMessage);
     } finally {
@@ -49,40 +43,79 @@ const LoginPage = () => {
   };
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-slate-50 dark:bg-slate-900 px-4 transition-colors duration-200">
-      <Card className="w-full max-w-md" title="Iniciar Sesión">
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <Input
-            label="Correo electrónico"
-            type="email"
-            placeholder="correo@ejemplo.com"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            required
-          />
-          <Input
-            label="Contraseña"
-            type="password"
-            placeholder="••••••••"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            required
-          />
-          
-          {error && <Alert type="danger" message={error} />}
-          
-          <Button type="submit" className="w-full" isLoading={isLoading}>
-            Ingresar
-          </Button>
-        </form>
-
-        <div className="mt-4 text-center text-sm">
-          <span className="text-slate-500 dark:text-slate-400">¿No tienes una cuenta? </span>
-          <Link to="/register" className="text-indigo-600 dark:text-indigo-400 hover:underline font-medium">
-            Regístrate aquí
-          </Link>
+    <div className="min-h-screen flex items-center justify-center p-4 bg-slate-50 dark:bg-slate-900 transition-colors duration-300">
+      <div className="max-w-md w-full bg-white dark:bg-slate-800 rounded-3xl shadow-xl overflow-hidden animate-in fade-in zoom-in duration-500 border border-slate-100 dark:border-slate-700 transition-colors">
+        {/* Banner de Cabecera */}
+        <div className="bg-indigo-600 p-8 text-center relative">
+          <div className="w-16 h-16 bg-white/20 rounded-2xl flex items-center justify-center mx-auto mb-4 backdrop-blur-sm">
+            <Package className="w-8 h-8 text-white" />
+          </div>
+          <h2 className="text-2xl font-bold text-white mb-1">
+            Bienvenido de nuevo
+          </h2>
+          <p className="text-indigo-200 text-sm">
+            Sistema de Gestión de Inventario Ágil
+          </p>
         </div>
-      </Card>
+        
+        {/* Formulario */}
+        <form onSubmit={handleSubmit} className="p-8 space-y-5">
+          {error && <Alert type="danger" message={error} />}
+
+          <div>
+            <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
+              Correo Electrónico
+            </label>
+            <div className="relative">
+              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                <Mail className="h-5 w-5 text-slate-400" />
+              </div>
+              <input 
+                type="email" 
+                required 
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                className="pl-10 w-full p-3 bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-600 text-slate-900 dark:text-slate-100 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none transition-all" 
+                placeholder="usuario@empresa.com" 
+              />
+            </div>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
+              Contraseña
+            </label>
+            <div className="relative">
+              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                <Lock className="h-5 w-5 text-slate-400" />
+              </div>
+              <input 
+                type="password" 
+                required 
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                className="pl-10 w-full p-3 bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-600 text-slate-900 dark:text-slate-100 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none transition-all" 
+                placeholder="••••••••" 
+              />
+            </div>
+          </div>
+
+          <button 
+            type="submit" 
+            disabled={isLoading}
+            className="w-full py-3 px-4 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white rounded-xl font-medium transition-colors shadow-lg shadow-indigo-200 dark:shadow-none"
+          >
+            {isLoading ? 'Iniciando Sesión...' : 'Iniciar Sesión'}
+          </button>
+
+          <p className="text-center text-sm text-slate-600 dark:text-slate-400 mt-4">
+            ¿No tienes una cuenta? 
+            <Link to="/register" className="ml-1 text-indigo-600 dark:text-indigo-400 font-semibold hover:underline">
+              Regístrate
+            </Link>
+          </p>
+        </form>
+      </div>
     </div>
   );
 };

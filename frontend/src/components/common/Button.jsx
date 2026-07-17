@@ -9,7 +9,11 @@ const Button = ({
   className = '', 
   isLoading 
 }) => {
-  const baseStyles = 'inline-flex items-center justify-center font-medium rounded-xl transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 disabled:opacity-50 disabled:pointer-events-none px-4 py-2 text-sm';
+  // Evitar aplicar padding por defecto (px-4 py-2) si la clase contiene especificaciones de padding personalizadas (p-, px-, py-)
+  const hasCustomPadding = /\bp[xy]?-\d+/.test(className);
+  const paddingClasses = hasCustomPadding ? '' : 'px-4 py-2';
+  
+  const baseStyles = `inline-flex items-center justify-center font-medium rounded-xl transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 disabled:opacity-50 disabled:pointer-events-none text-sm ${paddingClasses}`;
   
   const variants = {
     primary: 'bg-indigo-600 hover:bg-indigo-700 text-white focus:ring-indigo-500',
