@@ -1,24 +1,31 @@
-import React, { useState, useEffect } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import Input from '../common/Input';
 import Select from '../common/Select';
 import Button from '../common/Button';
 import Alert from '../common/Alert';
 
-const MovementForm = ({ products, onSubmit, loading }) => {
+const MovementForm = ({ products = [], onSubmit, loading }) => {
   const [selectedProductId, setSelectedProductId] = useState('');
   const [type, setType] = useState('ENTRY');
   const [quantity, setQuantity] = useState('');
   const [error, setError] = useState('');
 
-  // Buscar el producto seleccionado para conocer su stock actual
-  const selectedProduct = products.find(p => String(p.id) === String(selectedProductId));
+  const selectedProduct = useMemo(() => {
+    return products.find((product) => String(product._id) === String(selectedProductId));
+  }, [products, selectedProductId]);
 
   useEffect(() => {
     setError('');
   }, [selectedProductId, type, quantity]);
 
-  const handleSubmit = (e) => {
-    e.preventDefault();
+  const resetForm = () => {
+    setSelectedProductId('');
+    setType('ENTRY');
+    setQuantity('');
+  };
+
+  const handleSubmit = (event) => {
+    event.preventDefault();
     setError('');
 
     if (!selectedProductId) {
@@ -26,82 +33,105 @@ const MovementForm = ({ products, onSubmit, loading }) => {
       return;
     }
 
-    const qty = parseInt(quantity, 10);
-    if (isNaN(qty) || qty <= 0) {
+    const parsedQuantity = Number(quantity);
+
+    if (!Number.isInteger(parsedQuantity) || parsedQuantity <= 0) {
       setError('La cantidad debe ser un número entero mayor a cero.');
       return;
     }
 
-    // Validación estricta para Salida
-    if (type === 'OUTLET' || type === 'EXIT') {
-      const currentStock = selectedProduct ? selectedProduct.stock : 0;
-      if (qty > currentStock) {
-        setError(`Stock insuficiente. El stock actual es de ${currentStock} unidades.`);
+    if (type === 'OUTPUT') {
+      const currentStock = Number(selectedProduct?.stock || 0);
+
+      if (parsedQuantity > currentStock) {
+        setError(
+          `Stock insuficiente. El stock actual es de ${currentStock} unidades.`,
+        );
         return;
       }
     }
 
-    onSubmit({
-      productId: selectedProductId,
-      type,
-      quantity: qty
-    }, () => {
-      // Callback para limpiar formulario únicamente si el backend respondió con éxito
-      setQuantity('');
-    });
+    onSubmit(
+      {
+        productId: selectedProductId,
+        type,
+        quantity: parsedQuantity,
+      },
+      resetForm,
+    );
   };
 
-  const productOptions = products.map(p => ({
-    value: p.id,
-    label: `${p.name} (Stock: ${p.stock})`
+  const productOptions = products.map((product) => ({
+    value: product._id,
+    label: `${product.name} (Stock: ${product.stock})`,
   }));
 
   const typeOptions = [
     { value: 'ENTRY', label: 'Entrada' },
-    { value: 'OUTLET', label: 'Salida' }
+    { value: 'OUTPUT', label: 'Salida' },
   ];
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-4 bg-white p-6 rounded-lg shadow-md">
-      <h3 className="text-lg font-semibold text-gray-800">Registrar Movimiento de Inventario</h3>
-      
-      {error && <Alert type="error" message={error} />}
+    <form
+      onSubmit={handleSubmit}
+      className="space-y-4 rounded-xl border border-slate-100 bg-white p-6 shadow-sm dark:border-slate-700/60 dark:bg-slate-800"
+    >
+      <div>
+        <h3 className="text-lg font-semibold text-slate-800 dark:text-slate-100">
+          Registrar movimiento
+        </h3>
+
+        <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
+          El stock se actualiza únicamente cuando el backend confirma la operación.
+        </p>
+      </div>
+
+      {error && <Alert type="danger" message={error} />}
 
       <Select
         label="Producto"
         options={productOptions}
         value={selectedProductId}
-        onChange={(e) => setSelectedProductId(e.target.value)}
-        placeholder="-- Selecciona un producto --"
+        onChange={(event) => setSelectedProductId(event.target.value)}
+        placeholder="Selecciona un producto"
         required
+        disabled={loading}
       />
 
       {selectedProduct && (
-        <div className="p-3 bg-blue-50 text-blue-800 rounded-md text-sm">
-          <strong>Stock Actual:</strong> {selectedProduct.stock} unidades
+        <div className="rounded-xl border border-indigo-100 bg-indigo-50 p-3 text-sm text-indigo-800 dark:border-indigo-900/40 dark:bg-indigo-900/20 dark:text-indigo-300">
+          <strong>Stock actual:</strong> {selectedProduct.stock} unidades
         </div>
       )}
 
       <Select
-        label="Tipo de Movimiento"
+        label="Tipo de movimiento"
         options={typeOptions}
         value={type}
-        onChange={(e) => setType(e.target.value)}
+        onChange={(event) => setType(event.target.value)}
         required
+        disabled={loading}
       />
 
       <Input
         label="Cantidad"
         type="number"
         min="1"
+        step="1"
         value={quantity}
-        onChange={(e) => setQuantity(e.target.value)}
+        onChange={(event) => setQuantity(event.target.value)}
         placeholder="Ej. 10"
         required
+        disabled={loading}
       />
 
-      <Button type="submit" variant="primary" loading={loading} className="w-full">
-        Registrar Movimiento
+      <Button
+        type="submit"
+        variant="primary"
+        isLoading={loading}
+        className="w-full"
+      >
+        Registrar movimiento
       </Button>
     </form>
   );
