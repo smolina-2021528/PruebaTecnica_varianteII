@@ -35,6 +35,19 @@ function isOutputMovement(movement) {
   return String(movement.type || '').toUpperCase() === 'OUTPUT';
 }
 
+function isLowStockProduct(product) {
+  const stock = toFiniteNumber(product.stock);
+  const minStock = toFiniteNumber(product.minStock, 5);
+
+  return stock > 0 && stock <= minStock;
+}
+
+function isOutOfStockProduct(product) {
+  const stock = toFiniteNumber(product.stock);
+
+  return stock === 0;
+}
+
 function handleInventoryError(error, res, defaultMessage) {
   if (error.response) {
     return sendError(res, {
@@ -174,6 +187,57 @@ export async function getCategoriesReport(req, res, next) {
       error,
       res,
       'No fue posible consultar Inventory para calcular resumen por categorías',
+    );
+
+    if (handledError) {
+      return handledError;
+    }
+
+    return next(error);
+  }
+}
+
+export async function getSummaryReport(req, res, next) {
+  try {
+    const products = await getInventoryProducts(req.headers.authorization);
+
+    const summary = products.reduce(
+      (accumulator, product) => {
+        const stock = toFiniteNumber(product.stock);
+        const price = toFiniteNumber(product.price);
+
+        accumulator.totalProducts += 1;
+        accumulator.totalUnits += stock;
+        accumulator.inventoryValue += price * stock;
+
+        if (isLowStockProduct(product)) {
+          accumulator.lowStockCount += 1;
+        }
+
+        if (isOutOfStockProduct(product)) {
+          accumulator.outOfStockCount += 1;
+        }
+
+        return accumulator;
+      },
+      {
+        totalProducts: 0,
+        totalUnits: 0,
+        inventoryValue: 0,
+        lowStockCount: 0,
+        outOfStockCount: 0,
+      },
+    );
+
+    return sendSuccess(res, {
+      message: 'Resumen general de inventario',
+      data: summary,
+    });
+  } catch (error) {
+    const handledError = handleInventoryError(
+      error,
+      res,
+      'No fue posible consultar Inventory para calcular resumen general',
     );
 
     if (handledError) {
