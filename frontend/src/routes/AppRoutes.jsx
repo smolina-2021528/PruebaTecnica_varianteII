@@ -7,7 +7,6 @@ import LoginPage from '../pages/LoginPage';
 import RegisterPage from '../pages/RegisterPage';
 import DashboardPage from '../pages/DashboardPage';
 import ProductsPage from '../pages/ProductsPage';
-import MovementsPage from '../pages/MovementsPage';
 import ReportsPage from '../pages/ReportsPage';
 
 const AppRoutes = () => {
@@ -24,7 +23,6 @@ const AppRoutes = () => {
             <Route element={<MainLayout />}>
               <Route path="/dashboard" element={<DashboardPage />} />
               <Route path="/products" element={<ProductsPage />} />
-              <Route path="/movements" element={<MovementsPage />} />
               <Route path="/reports" element={<ReportsPage />} />
             </Route>
           </Route>
