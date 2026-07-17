@@ -4,6 +4,7 @@ import Card from '../components/common/Card';
 import Input from '../components/common/Input';
 import Button from '../components/common/Button';
 import Alert from '../components/common/Alert';
+import { authApi } from '../services/api';
 
 const RegisterPage = () => {
   const navigate = useNavigate();
@@ -14,7 +15,7 @@ const RegisterPage = () => {
   const [success, setSuccess] = useState('');
   const [isLoading, setIsLoading] = useState(false);
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     if (!name || !email || !password) {
       setError('Por favor complete todos los campos');
@@ -25,14 +26,28 @@ const RegisterPage = () => {
     setError('');
     setSuccess('');
 
-    // Simulación de registro de API (Sprint 1)
-    setTimeout(() => {
+    try {
+      // Petición real al Servicio Auth para registrar
+      const response = await authApi.post('/auth/register', { name, email, password });
+      
+      const { success, message } = response.data;
+      
+      if (success) {
+        setSuccess(message || 'Usuario registrado con éxito. Redirigiendo a inicio de sesión...');
+        setTimeout(() => {
+          navigate('/login');
+        }, 1500);
+      } else {
+        setError(message || 'Error en el registro');
+      }
+    } catch (err) {
+      console.error('Error de registro:', err);
+      // Extraer mensaje del backend si existe
+      const backendMessage = err.response?.data?.message || 'No se pudo conectar con el servidor de autenticación. Verifica que el servicio esté corriendo.';
+      setError(backendMessage);
+    } finally {
       setIsLoading(false);
-      setSuccess('Usuario registrado con éxito. Redirigiendo a inicio de sesión...');
-      setTimeout(() => {
-        navigate('/login');
-      }, 1500);
-    }, 1000);
+    }
   };
 
   return (
