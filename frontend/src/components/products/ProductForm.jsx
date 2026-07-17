@@ -11,7 +11,6 @@ const ProductForm = ({ product, onSubmit, onCancel, categories = [] }) => {
   const [stock, setStock] = useState('0');
   const [minStock, setMinStock] = useState('5');
   const [errors, setErrors] = useState({});
-  const [submitError, setSubmitError] = useState('');
 
   const isEdit = !!product;
 
@@ -20,7 +19,6 @@ const ProductForm = ({ product, onSubmit, onCancel, categories = [] }) => {
       setName(product.name || '');
       setCategory(product.category || '');
       setPrice(String(product.price ?? ''));
-      setStock(String(product.stock ?? '0'));
       setMinStock(String(product.minStock ?? '5'));
     } else {
       setName('');
@@ -30,7 +28,6 @@ const ProductForm = ({ product, onSubmit, onCancel, categories = [] }) => {
       setMinStock('5');
     }
     setErrors({});
-    setSubmitError('');
   }, [product]);
 
   const validate = () => {
@@ -52,16 +49,24 @@ const ProductForm = ({ product, onSubmit, onCancel, categories = [] }) => {
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    setSubmitError('');
     if (!validate()) return;
 
-    onSubmit({
-      name: name.trim(),
-      category,
-      price: Number(price),
-      stock: Number(stock),
-      minStock: Number(minStock),
-    });
+    if (isEdit) {
+      onSubmit({
+        name: name.trim(),
+        category,
+        price: Number(price),
+        minStock: Number(minStock),
+      });
+    } else {
+      onSubmit({
+        name: name.trim(),
+        category,
+        price: Number(price),
+        stock: Number(stock),
+        minStock: Number(minStock),
+      });
+    }
   };
 
   const categoryOptions = categories.map((cat) => ({
@@ -71,10 +76,6 @@ const ProductForm = ({ product, onSubmit, onCancel, categories = [] }) => {
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
-      {submitError && (
-        <Alert type="danger" message={submitError} />
-      )}
-
       <Input
         label="Nombre del Producto"
         value={name}

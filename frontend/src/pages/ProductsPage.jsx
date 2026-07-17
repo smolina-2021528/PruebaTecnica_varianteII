@@ -1,81 +1,116 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import Card from '../components/common/Card';
 import Button from '../components/common/Button';
 import Input from '../components/common/Input';
 import Select from '../components/common/Select';
 import Alert from '../components/common/Alert';
+import Loader from '../components/common/Loader';
 import ProductTable from '../components/products/ProductTable';
 import ProductModal from '../components/products/ProductModal';
+import CategoryModal from '../components/products/CategoryModal';
+import { getProducts, createProduct, updateProduct, deleteProduct } from '../services/productService';
+import { getCategories } from '../services/categoryService';
 import { Plus, Search, Package } from 'lucide-react';
 
-const initialProducts = [
-  { _id: '1', name: 'Laptop Pro 15"', category: 'Tecnología', price: 1299.99, stock: 15, minStock: 5 },
-  { _id: '2', name: 'Mouse Inalámbrico', category: 'Accesorios', price: 29.99, stock: 3, minStock: 5 },
-  { _id: '3', name: 'Teclado Mecánico RGB', category: 'Accesorios', price: 89.99, stock: 2, minStock: 5 },
-  { _id: '4', name: 'Monitor LED 24"', category: 'Tecnología', price: 189.99, stock: 0, minStock: 5 },
-  { _id: '5', name: 'Memoria USB 64GB', category: 'Accesorios', price: 15.99, stock: 4, minStock: 8 },
-];
-
-const initialCategories = [
-  { _id: '1', name: 'Tecnología' },
-  { _id: '2', name: 'Accesorios' },
-  { _id: '3', name: 'Mobiliario' },
-];
-
 const ProductsPage = () => {
-  const [products, setProducts] = useState(initialProducts);
-  const [categories, setCategories] = useState(initialCategories);
+  const [products, setProducts] = useState([]);
+  const [categories, setCategories] = useState([]);
   const [search, setSearch] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('');
-  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isProductModalOpen, setIsProductModalOpen] = useState(false);
+  const [isCategoryModalOpen, setIsCategoryModalOpen] = useState(false);
   const [editingProduct, setEditingProduct] = useState(null);
   const [notification, setNotification] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
 
   const showNotification = (type, message) => {
     setNotification({ type, message });
-    setTimeout(() => setNotification(null), 3000);
+    setTimeout(() => setNotification(null), 4000);
   };
 
-  const filteredProducts = products.filter((prod) => {
-    const matchesSearch = prod.name.toLowerCase().includes(search.toLowerCase());
-    const matchesCategory = selectedCategory ? prod.category === selectedCategory : true;
-    return matchesSearch && matchesCategory;
-  });
+  const fetchProducts = useCallback(async () => {
+    try {
+      const params = {};
+      if (search) params.search = search;
+      if (selectedCategory) params.category = selectedCategory;
+      const data = await getProducts(params);
+      setProducts(data);
+    } catch (err) {
+      if (err.response?.status !== 401) {
+        setError('Error al cargar los productos.');
+      }
+    }
+  }, [search, selectedCategory]);
+
+  const fetchCategories = async () => {
+    try {
+      const data = await getCategories();
+      setCategories(data);
+    } catch (err) {
+      if (err.response?.status !== 401) {
+        console.error('Error al cargar categorías');
+      }
+    }
+  };
+
+  useEffect(() => {
+    const loadInitial = async () => {
+      setLoading(true);
+      await Promise.all([fetchProducts(), fetchCategories()]);
+      setLoading(false);
+    };
+    loadInitial();
+  }, []);
+
+  useEffect(() => {
+    if (!loading) {
+      fetchProducts();
+    }
+  }, [search, selectedCategory]);
 
   const handleOpenCreateModal = () => {
     setEditingProduct(null);
-    setIsModalOpen(true);
+    setIsProductModalOpen(true);
   };
 
   const handleOpenEditModal = (product) => {
     setEditingProduct(product);
-    setIsModalOpen(true);
+    setIsProductModalOpen(true);
   };
 
-  const handleDeleteProduct = (product) => {
-    if (window.confirm(`¿Está seguro de que desea eliminar el producto "${product.name}"?`)) {
-      setProducts(products.filter((p) => p._id !== product._id));
+  const handleDeleteProduct = async (product) => {
+    if (!window.confirm(`¿Está seguro de que desea eliminar el producto "${product.name}"?`)) return;
+    try {
+      await deleteProduct(product._id);
       showNotification('success', `Producto "${product.name}" eliminado.`);
+      fetchProducts();
+    } catch (err) {
+      const msg = err.response?.data?.message || 'Error al eliminar el producto.';
+      showNotification('danger', msg);
     }
   };
 
-  const handleFormSubmit = (formData) => {
-    if (editingProduct) {
-      setProducts(products.map((p) =>
-        p._id === editingProduct._id
-          ? { ...p, ...formData }
-          : p
-      ));
-      showNotification('success', `Producto "${formData.name}" actualizado.`);
-    } else {
-      const newProduct = {
-        _id: String(Date.now()),
-        ...formData,
-      };
-      setProducts([...products, newProduct]);
-      showNotification('success', `Producto "${formData.name}" creado.`);
+  const handleFormSubmit = async (formData) => {
+    try {
+      if (editingProduct) {
+        await updateProduct(editingProduct._id, {
+          name: formData.name,
+          category: formData.category,
+          price: formData.price,
+          minStock: formData.minStock,
+        });
+        showNotification('success', `Producto "${formData.name}" actualizado.`);
+      } else {
+        await createProduct(formData);
+        showNotification('success', `Producto "${formData.name}" creado.`);
+      }
+      setIsProductModalOpen(false);
+      fetchProducts();
+    } catch (err) {
+      const msg = err.response?.data?.message || 'Error al guardar el producto.';
+      showNotification('danger', msg);
     }
-    setIsModalOpen(false);
   };
 
   const categoryOptions = categories.map((cat) => ({
@@ -87,10 +122,22 @@ const ProductsPage = () => {
   const lowStockCount = products.filter((p) => p.stock > 0 && p.stock <= p.minStock).length;
   const outOfStockCount = products.filter((p) => p.stock === 0).length;
 
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-[400px]">
+        <Loader size="lg" />
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6">
       {notification && (
         <Alert type={notification.type} message={notification.message} />
+      )}
+
+      {error && (
+        <Alert type="danger" message={error} />
       )}
 
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
@@ -102,13 +149,17 @@ const ProductsPage = () => {
             Administra los productos de tu inventario, sus categorías y sus niveles de stock.
           </p>
         </div>
-        <Button onClick={handleOpenCreateModal} className="flex gap-2 self-start sm:self-auto">
-          <Plus size={18} />
-          Nuevo Producto
-        </Button>
+        <div className="flex gap-2 self-start sm:self-auto">
+          <Button variant="secondary" onClick={() => setIsCategoryModalOpen(true)}>
+            Categorías
+          </Button>
+          <Button onClick={handleOpenCreateModal} className="flex gap-2">
+            <Plus size={18} />
+            Nuevo Producto
+          </Button>
+        </div>
       </div>
 
-      {/* Resumen rápido */}
       <div className="grid gap-4 sm:grid-cols-3">
         <Card className="p-4 flex items-center gap-3">
           <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-indigo-100 dark:bg-indigo-900/30">
@@ -139,7 +190,6 @@ const ProductsPage = () => {
         </Card>
       </div>
 
-      {/* Barra de Filtros */}
       <Card className="p-4">
         <div className="grid gap-4 md:grid-cols-3">
           <Input
@@ -148,7 +198,6 @@ const ProductsPage = () => {
             onChange={(e) => setSearch(e.target.value)}
             leftIcon={<Search size={18} />}
           />
-
           <Select
             value={selectedCategory}
             onChange={(e) => setSelectedCategory(e.target.value)}
@@ -158,21 +207,27 @@ const ProductsPage = () => {
         </div>
       </Card>
 
-      {/* Tabla de Productos */}
       <ProductTable
-        products={filteredProducts}
+        products={products}
         onEdit={handleOpenEditModal}
         onDelete={handleDeleteProduct}
       />
 
-      {/* Modal de Producto */}
       <ProductModal
-        isOpen={isModalOpen}
-        onClose={() => setIsModalOpen(false)}
+        isOpen={isProductModalOpen}
+        onClose={() => setIsProductModalOpen(false)}
         title={editingProduct ? 'Editar Producto' : 'Crear Producto'}
         product={editingProduct}
         categories={categories}
         onSubmit={handleFormSubmit}
+      />
+
+      <CategoryModal
+        isOpen={isCategoryModalOpen}
+        onClose={() => setIsCategoryModalOpen(false)}
+        categories={categories}
+        onRefresh={fetchCategories}
+        showNotification={showNotification}
       />
     </div>
   );
