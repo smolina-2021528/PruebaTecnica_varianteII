@@ -1,6 +1,6 @@
 import React from 'react';
 import SummaryCards from '../components/reports/SummaryCards';
-import Card from '../common/Card';
+import Card from '../components/common/Card';
 
 const mockAlerts = [
   { id: '1', product: 'Monitor Dell 27"', stock: 2, minStock: 5 },

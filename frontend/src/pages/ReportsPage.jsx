@@ -1,6 +1,6 @@
 import React from 'react';
 import SummaryCards from '../components/reports/SummaryCards';
-import Card from '../common/Card';
+import Card from '../components/common/Card';
 
 const ReportsPage = () => {
   return (
