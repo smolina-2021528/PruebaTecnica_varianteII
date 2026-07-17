@@ -3,13 +3,20 @@ import {
   createProduct,
   listProducts,
   getProductById,
+  updateProduct,
+  deleteProduct,
 } from '../controllers/product.controller.js';
+import { authenticateToken } from '../middlewares/authenticateToken.js';
 
 const router = Router();
 
-// Sprint 1: sin JWT todavía (se protegerá antes de cerrar Sprint 2).
+// Proteger todas las rutas de productos con JWT (Sprint 2)
+router.use(authenticateToken);
+
 router.post('/', createProduct);
 router.get('/', listProducts);
 router.get('/:id', getProductById);
+router.put('/:id', updateProduct);
+router.delete('/:id', deleteProduct);
 
 export default router;
