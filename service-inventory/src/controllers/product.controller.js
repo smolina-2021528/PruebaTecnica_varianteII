@@ -6,7 +6,7 @@ import { asyncHandler } from '../utils/asyncHandler.js';
 
 // POST /api/products
 export const createProduct = asyncHandler(async (req, res) => {
-  const { name, category, price, stock, minStock } = req.body;
+  const { name, category, price, stock = 0, minStock = 5 } = req.body;
 
   const product = await Product.create({
     name,
@@ -18,7 +18,7 @@ export const createProduct = asyncHandler(async (req, res) => {
 
   return sendSuccess(res, {
     status: 201,
-    message: 'Producto creado',
+    message: 'Producto creado correctamente',
     data: { product },
   });
 });
@@ -30,8 +30,7 @@ export const listProducts = asyncHandler(async (req, res) => {
   const filter = {};
 
   if (search) {
-    // Búsqueda por nombre, ignorando mayúsculas/minúsculas.
-    filter.name = { $regex: search, $options: 'i' };
+    filter.name = { $regex: search, $options: 'i' }; // case insensitive
   }
 
   if (category) {
@@ -62,6 +61,51 @@ export const getProductById = asyncHandler(async (req, res) => {
 
   return sendSuccess(res, {
     message: 'Producto obtenido',
+    data: { product },
+  });
+});
+
+// PUT /api/products/:id
+export const updateProduct = asyncHandler(async (req, res) => {
+  const { id } = req.params;
+  const { name, category, price, minStock } = req.body;
+
+  if (!mongoose.isValidObjectId(id)) {
+    throw new HttpError(400, 'El identificador del producto no es válido');
+  }
+
+  const product = await Product.findByIdAndUpdate(
+    id,
+    { name, category, price, minStock },
+    { new: true, runValidators: true }
+  );
+
+  if (!product) {
+    throw new HttpError(404, 'Producto no encontrado');
+  }
+
+  return sendSuccess(res, {
+    message: 'Producto actualizado correctamente',
+    data: { product },
+  });
+});
+
+// DELETE /api/products/:id
+export const deleteProduct = asyncHandler(async (req, res) => {
+  const { id } = req.params;
+
+  if (!mongoose.isValidObjectId(id)) {
+    throw new HttpError(400, 'El identificador del producto no es válido');
+  }
+
+  const product = await Product.findByIdAndDelete(id);
+
+  if (!product) {
+    throw new HttpError(404, 'Producto no encontrado');
+  }
+
+  return sendSuccess(res, {
+    message: 'Producto eliminado correctamente',
     data: { product },
   });
 });
