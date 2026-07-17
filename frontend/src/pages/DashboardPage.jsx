@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import Card from '../common/Card';
-import Table from '../common/Table';
-import Alert from '../common/Alert';
+import Card from '../components/common/Card';
+import Table from '../components/common/Table';
+import Alert from '../components/common/Alert';
 
 import { getSummary, getLowStock, getOutOfStock } from '../services/dashboardService';
 

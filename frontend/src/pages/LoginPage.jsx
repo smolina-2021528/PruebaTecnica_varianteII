@@ -5,6 +5,7 @@ import Card from '../components/common/Card';
 import Input from '../components/common/Input';
 import Button from '../components/common/Button';
 import Alert from '../components/common/Alert';
+import { authApi } from '../services/api';
 
 const LoginPage = () => {
   const { login } = useAuth();
@@ -14,7 +15,7 @@ const LoginPage = () => {
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     if (!email || !password) {
       setError('Por favor complete todos los campos');
@@ -24,26 +25,32 @@ const LoginPage = () => {
     setIsLoading(true);
     setError('');
 
-    // Simulación de respuesta de API (Sprint 1)
-    setTimeout(() => {
-      setIsLoading(false);
-      if (email === 'demo@example.com' && password === '123456') {
-        login('mock-jwt-token', { name: 'Leonel Líder', email: 'demo@example.com' });
+    try {
+      // Petición real al Servicio Auth
+      const response = await authApi.post('/auth/login', { email, password });
+      
+      const { success, data, message } = response.data;
+      
+      if (success && data?.token) {
+        // Guardar sesión y redirigir
+        login(data.token, data.user);
         navigate('/dashboard');
       } else {
-        setError('Credenciales incorrectas. Use: demo@example.com y 123456');
+        setError(message || 'Error al iniciar sesión');
       }
-    }, 1000);
+    } catch (err) {
+      console.error('Error de login:', err);
+      // Extraer mensaje detallado de error del backend si existe
+      const backendMessage = err.response?.data?.message || 'No se pudo conectar con el servidor de autenticación. Verifica que el servicio esté corriendo.';
+      setError(backendMessage);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-slate-50 dark:bg-slate-900 px-4 transition-colors duration-200">
       <Card className="w-full max-w-md" title="Iniciar Sesión">
-        <p className="text-xs text-slate-500 mb-4 dark:text-slate-400">
-          Usa las credenciales de prueba para el Sprint 1: <br />
-          <strong>Email:</strong> demo@example.com / <strong>Contraseña:</strong> 123456
-        </p>
-
         <form onSubmit={handleSubmit} className="space-y-4">
           <Input
             label="Correo electrónico"
