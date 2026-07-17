@@ -1,115 +1,165 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect } from 'react';
 import Card from '../components/common/Card';
 import Button from '../components/common/Button';
 import Input from '../components/common/Input';
 import Select from '../components/common/Select';
+import Modal from '../components/common/Modal';
 import Alert from '../components/common/Alert';
 import Loader from '../components/common/Loader';
 import ProductTable from '../components/products/ProductTable';
 import ProductModal from '../components/products/ProductModal';
-import CategoryModal from '../components/products/CategoryModal';
-import { getProducts, createProduct, updateProduct, deleteProduct } from '../services/productService';
-import { getCategories } from '../services/categoryService';
-import { Plus, Search, Package } from 'lucide-react';
+import TransactionModal from '../components/products/TransactionModal';
+import { Plus, Search, FolderPlus, Trash2 } from 'lucide-react';
+import { 
+  getProducts, 
+  createProduct, 
+  updateProduct, 
+  deleteProduct, 
+  getCategories, 
+  createCategory, 
+  deleteCategory,
+  registerEntry,
+  registerOutput
+} from '../services/productService';
 
 const ProductsPage = () => {
   const [products, setProducts] = useState([]);
   const [categories, setCategories] = useState([]);
   const [search, setSearch] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('');
-  const [isProductModalOpen, setIsProductModalOpen] = useState(false);
-  const [isCategoryModalOpen, setIsCategoryModalOpen] = useState(false);
+  
+  // Modales
+  const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingProduct, setEditingProduct] = useState(null);
-  const [notification, setNotification] = useState(null);
+  
+  const [isTransactionOpen, setIsTransactionOpen] = useState(false);
+  const [transactionProduct, setTransactionProduct] = useState(null);
+  
+  const [isCategoryModalOpen, setIsCategoryModalOpen] = useState(false);
+  const [newCategoryName, setNewCategoryName] = useState('');
+  const [categoryError, setCategoryError] = useState('');
+
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
+  const [error, setError] = useState(null);
 
-  const showNotification = (type, message) => {
-    setNotification({ type, message });
-    setTimeout(() => setNotification(null), 4000);
-  };
+  // Cargar datos iniciales
+  useEffect(() => {
+    fetchCategories();
+  }, []);
 
-  const fetchProducts = useCallback(async () => {
-    try {
-      const params = {};
-      if (search) params.search = search;
-      if (selectedCategory) params.category = selectedCategory;
-      const data = await getProducts(params);
-      setProducts(data);
-    } catch (err) {
-      if (err.response?.status !== 401) {
-        setError('Error al cargar los productos.');
-      }
-    }
+  // Cargar productos al cambiar filtros de búsqueda o categoría
+  useEffect(() => {
+    fetchProducts();
   }, [search, selectedCategory]);
+
+  const fetchProducts = async () => {
+    try {
+      setLoading(true);
+      const data = await getProducts(search, selectedCategory);
+      setProducts(data);
+      setError(null);
+    } catch (err) {
+      console.error(err);
+      setError('Error al obtener la lista de productos.');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const fetchCategories = async () => {
     try {
       const data = await getCategories();
       setCategories(data);
     } catch (err) {
-      if (err.response?.status !== 401) {
-        console.error('Error al cargar categorías');
-      }
+      console.error(err);
     }
   };
 
-  useEffect(() => {
-    const loadInitial = async () => {
-      setLoading(true);
-      await Promise.all([fetchProducts(), fetchCategories()]);
-      setLoading(false);
-    };
-    loadInitial();
-  }, []);
-
-  useEffect(() => {
-    if (!loading) {
-      fetchProducts();
-    }
-  }, [search, selectedCategory]);
-
   const handleOpenCreateModal = () => {
     setEditingProduct(null);
-    setIsProductModalOpen(true);
+    setIsModalOpen(true);
   };
 
   const handleOpenEditModal = (product) => {
     setEditingProduct(product);
-    setIsProductModalOpen(true);
+    setIsModalOpen(true);
   };
 
   const handleDeleteProduct = async (product) => {
-    if (!window.confirm(`¿Está seguro de que desea eliminar el producto "${product.name}"?`)) return;
-    try {
-      await deleteProduct(product._id);
-      showNotification('success', `Producto "${product.name}" eliminado.`);
-      fetchProducts();
-    } catch (err) {
-      const msg = err.response?.data?.message || 'Error al eliminar el producto.';
-      showNotification('danger', msg);
+    if (window.confirm(`¿Está seguro de que desea eliminar el producto "${product.name}"?`)) {
+      try {
+        await deleteProduct(product._id);
+        fetchProducts();
+      } catch (err) {
+        console.error(err);
+        alert(err.response?.data?.message || 'Error al eliminar el producto.');
+      }
     }
   };
 
-  const handleFormSubmit = async (formData) => {
+  const handleProductFormSubmit = async (formData) => {
     try {
       if (editingProduct) {
-        await updateProduct(editingProduct._id, {
-          name: formData.name,
-          category: formData.category,
-          price: formData.price,
-          minStock: formData.minStock,
-        });
-        showNotification('success', `Producto "${formData.name}" actualizado.`);
+        await updateProduct(editingProduct._id, formData);
       } else {
         await createProduct(formData);
-        showNotification('success', `Producto "${formData.name}" creado.`);
       }
-      setIsProductModalOpen(false);
+      setIsModalOpen(false);
       fetchProducts();
     } catch (err) {
-      const msg = err.response?.data?.message || 'Error al guardar el producto.';
-      showNotification('danger', msg);
+      console.error(err);
+      throw err; // El ProductForm capturará el error
+    }
+  };
+
+  // Ajuste rápido de stock (Transacciones)
+  const handleOpenTransactionModal = (product) => {
+    setTransactionProduct(product);
+    setIsTransactionOpen(true);
+  };
+
+  const handleTransactionSubmit = async (type, quantity) => {
+    if (!transactionProduct) return;
+    try {
+      if (type === 'ENTRY') {
+        await registerEntry(transactionProduct._id, quantity);
+      } else {
+        await registerOutput(transactionProduct._id, quantity);
+      }
+      fetchProducts();
+    } catch (err) {
+      console.error(err);
+      throw err;
+    }
+  };
+
+  // CRUD Categorías
+  const handleAddCategory = async (e) => {
+    e.preventDefault();
+    if (!newCategoryName.trim()) {
+      setCategoryError('El nombre es obligatorio');
+      return;
+    }
+    setCategoryError('');
+    try {
+      await createCategory({ name: newCategoryName });
+      setNewCategoryName('');
+      fetchCategories();
+    } catch (err) {
+      console.error(err);
+      setCategoryError(err.response?.data?.message || 'Error al crear la categoría.');
+    }
+  };
+
+  const handleDeleteCategory = async (cat) => {
+    if (window.confirm(`¿Está seguro de que desea eliminar la categoría "${cat.name}"?`)) {
+      try {
+        await deleteCategory(cat._id);
+        fetchCategories();
+      } catch (err) {
+        console.error(err);
+        alert(err.response?.data?.message || 'Error al eliminar la categoría. Asegúrate de que ningún producto la esté utilizando.');
+      }
     }
   };
 
@@ -118,39 +168,18 @@ const ProductsPage = () => {
     label: cat.name,
   }));
 
-  const totalProducts = products.length;
-  const lowStockCount = products.filter((p) => p.stock > 0 && p.stock <= p.minStock).length;
-  const outOfStockCount = products.filter((p) => p.stock === 0).length;
-
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center min-h-[400px]">
-        <Loader size="lg" />
-      </div>
-    );
-  }
-
   return (
     <div className="space-y-6">
-      {notification && (
-        <Alert type={notification.type} message={notification.message} />
-      )}
-
-      {error && (
-        <Alert type="danger" message={error} />
-      )}
-
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight text-slate-800 dark:text-slate-100">
-            Gestión de Productos
-          </h1>
+          <h1 className="text-2xl font-bold tracking-tight text-slate-800 dark:text-slate-100">Gestión de Productos</h1>
           <p className="text-sm text-slate-500 dark:text-slate-400">
             Administra los productos de tu inventario, sus categorías y sus niveles de stock.
           </p>
         </div>
         <div className="flex gap-2 self-start sm:self-auto">
-          <Button variant="secondary" onClick={() => setIsCategoryModalOpen(true)}>
+          <Button onClick={() => setIsCategoryModalOpen(true)} variant="outline" className="flex gap-2">
+            <FolderPlus size={18} />
             Categorías
           </Button>
           <Button onClick={handleOpenCreateModal} className="flex gap-2">
@@ -160,36 +189,9 @@ const ProductsPage = () => {
         </div>
       </div>
 
-      <div className="grid gap-4 sm:grid-cols-3">
-        <Card className="p-4 flex items-center gap-3">
-          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-indigo-100 dark:bg-indigo-900/30">
-            <Package size={20} className="text-indigo-600 dark:text-indigo-400" />
-          </div>
-          <div>
-            <p className="text-2xl font-bold text-slate-800 dark:text-slate-100">{totalProducts}</p>
-            <p className="text-xs text-slate-500 dark:text-slate-400">Total productos</p>
-          </div>
-        </Card>
-        <Card className="p-4 flex items-center gap-3">
-          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-amber-100 dark:bg-amber-900/30">
-            <span className="text-lg font-bold text-amber-600 dark:text-amber-400">!</span>
-          </div>
-          <div>
-            <p className="text-2xl font-bold text-slate-800 dark:text-slate-100">{lowStockCount}</p>
-            <p className="text-xs text-slate-500 dark:text-slate-400">Bajo stock</p>
-          </div>
-        </Card>
-        <Card className="p-4 flex items-center gap-3">
-          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-red-100 dark:bg-red-900/30">
-            <span className="text-lg font-bold text-red-600 dark:text-red-400">0</span>
-          </div>
-          <div>
-            <p className="text-2xl font-bold text-slate-800 dark:text-slate-100">{outOfStockCount}</p>
-            <p className="text-xs text-slate-500 dark:text-slate-400">Agotados</p>
-          </div>
-        </Card>
-      </div>
+      {error && <Alert type="danger" message={error} />}
 
+      {/* Barra de Filtros */}
       <Card className="p-4">
         <div className="grid gap-4 md:grid-cols-3">
           <Input
@@ -198,6 +200,7 @@ const ProductsPage = () => {
             onChange={(e) => setSearch(e.target.value)}
             leftIcon={<Search size={18} />}
           />
+
           <Select
             value={selectedCategory}
             onChange={(e) => setSelectedCategory(e.target.value)}
@@ -207,28 +210,75 @@ const ProductsPage = () => {
         </div>
       </Card>
 
-      <ProductTable
-        products={products}
-        onEdit={handleOpenEditModal}
-        onDelete={handleDeleteProduct}
-      />
+      {/* Tabla de Productos */}
+      {loading && products.length === 0 ? (
+        <Loader size="lg" />
+      ) : (
+        <ProductTable 
+          products={products} 
+          onEdit={handleOpenEditModal} 
+          onDelete={handleDeleteProduct}
+          onQuickStock={handleOpenTransactionModal}
+        />
+      )}
 
+      {/* Modal de CRUD Producto */}
       <ProductModal
-        isOpen={isProductModalOpen}
-        onClose={() => setIsProductModalOpen(false)}
-        title={editingProduct ? 'Editar Producto' : 'Crear Producto'}
+        isOpen={isModalOpen}
+        onClose={() => setIsModalOpen(false)}
         product={editingProduct}
         categories={categories}
-        onSubmit={handleFormSubmit}
+        onSubmit={handleProductFormSubmit}
       />
 
-      <CategoryModal
+      {/* Modal de Transacción de Stock Rápido */}
+      <TransactionModal
+        isOpen={isTransactionOpen}
+        onClose={() => setIsTransactionOpen(false)}
+        product={transactionProduct}
+        onSubmit={handleTransactionSubmit}
+      />
+
+      {/* Modal de Categorías */}
+      <Modal
         isOpen={isCategoryModalOpen}
         onClose={() => setIsCategoryModalOpen(false)}
-        categories={categories}
-        onRefresh={fetchCategories}
-        showNotification={showNotification}
-      />
+        title="Gestión de Categorías"
+      >
+        <form onSubmit={handleAddCategory} className="flex gap-2 items-end mb-6">
+          <Input
+            label="Nueva Categoría"
+            placeholder="Nombre de categoría..."
+            value={newCategoryName}
+            onChange={(e) => setNewCategoryName(e.target.value)}
+            error={categoryError}
+            required
+          />
+          <Button type="submit" className="h-10">
+            Agregar
+          </Button>
+        </form>
+
+        <div className="max-h-60 overflow-y-auto space-y-2">
+          {categories.length === 0 ? (
+            <p className="text-sm text-slate-400 dark:text-slate-500 text-center py-4">No hay categorías registradas.</p>
+          ) : (
+            categories.map((cat) => (
+              <div key={cat._id} className="flex justify-between items-center p-2 rounded-xl bg-slate-50 dark:bg-slate-700/30">
+                <span className="text-sm font-medium text-slate-700 dark:text-slate-200">{cat.name}</span>
+                <Button 
+                  variant="outline" 
+                  className="p-1 h-7 w-7 text-red-500 hover:text-red-700 hover:bg-red-50 border-none"
+                  onClick={() => handleDeleteCategory(cat)}
+                  title="Eliminar categoría"
+                >
+                  <Trash2 size={16} />
+                </Button>
+              </div>
+            ))
+          )}
+        </div>
+      </Modal>
     </div>
   );
 };
