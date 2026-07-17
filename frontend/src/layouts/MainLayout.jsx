@@ -43,7 +43,6 @@ const MainLayout = () => {
   const menuItems = [
     { name: 'Dashboard', path: '/dashboard', icon: <LayoutDashboard size={20} /> },
     { name: 'Productos', path: '/products', icon: <Package size={20} /> },
-    { name: 'Movimientos', path: '/movements', icon: <ArrowLeftRight size={20} /> },
     { name: 'Reportes', path: '/reports', icon: <BarChart3 size={20} /> },
   ];
 
