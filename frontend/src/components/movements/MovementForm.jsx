@@ -1,81 +1,109 @@
-import React, { useState } from 'react';
-import Card from '../common/Card';
+import React, { useState, useEffect } from 'react';
 import Input from '../common/Input';
 import Select from '../common/Select';
 import Button from '../common/Button';
+import Alert from '../common/Alert';
 
-const mockProducts = [
-  { value: 'prod-1', label: 'Laptop Lenovo ThinkPad' },
-  { value: 'prod-2', label: 'Mouse Inalámbrico Logitech' },
-  { value: 'prod-3', label: 'Monitor Dell 27"' },
-];
-
-const movementTypes = [
-  { value: 'IN', label: 'Entrada (Ingreso)' },
-  { value: 'OUT', label: 'Salida (Egreso)' },
-];
-
-const MovementForm = ({ onSubmitMovement }) => {
-  const [productId, setProductId] = useState('');
-  const [type, setType] = useState('IN');
+const MovementForm = ({ products, onSubmit, loading }) => {
+  const [selectedProductId, setSelectedProductId] = useState('');
+  const [type, setType] = useState('ENTRY');
   const [quantity, setQuantity] = useState('');
+  const [error, setError] = useState('');
+
+  // Buscar el producto seleccionado para conocer su stock actual
+  const selectedProduct = products.find(p => String(p.id) === String(selectedProductId));
+
+  useEffect(() => {
+    setError('');
+  }, [selectedProductId, type, quantity]);
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    if (!productId || !quantity || quantity <= 0) return;
+    setError('');
 
-    const selectedProduct = mockProducts.find((p) => p.value === productId);
+    if (!selectedProductId) {
+      setError('Por favor, selecciona un producto.');
+      return;
+    }
 
-    onSubmitMovement({
-      id: Date.now().toString(),
-      productName: selectedProduct ? selectedProduct.label : productId,
+    const qty = parseInt(quantity, 10);
+    if (isNaN(qty) || qty <= 0) {
+      setError('La cantidad debe ser un número entero mayor a cero.');
+      return;
+    }
+
+    // Validación estricta para Salida
+    if (type === 'OUTLET' || type === 'EXIT') {
+      const currentStock = selectedProduct ? selectedProduct.stock : 0;
+      if (qty > currentStock) {
+        setError(`Stock insuficiente. El stock actual es de ${currentStock} unidades.`);
+        return;
+      }
+    }
+
+    onSubmit({
+      productId: selectedProductId,
       type,
-      quantity: Number(quantity),
-      date: new Date().toISOString().split('T')[0],
+      quantity: qty
+    }, () => {
+      // Callback para limpiar formulario únicamente si el backend respondió con éxito
+      setQuantity('');
     });
-
-    // Resetear formulario
-    setProductId('');
-    setQuantity('');
   };
 
+  const productOptions = products.map(p => ({
+    value: p.id,
+    label: `${p.name} (Stock: ${p.stock})`
+  }));
+
+  const typeOptions = [
+    { value: 'ENTRY', label: 'Entrada' },
+    { value: 'OUTLET', label: 'Salida' }
+  ];
+
   return (
-    <Card title="Registrar Movimiento de Inventario">
-      <form onSubmit={handleSubmit} className="space-y-4">
-        <Select
-          label="Producto"
-          value={productId}
-          onChange={(e) => setProductId(e.target.value)}
-          options={mockProducts}
-          placeholder="Selecciona un producto"
-          required
-        />
+    <form onSubmit={handleSubmit} className="space-y-4 bg-white p-6 rounded-lg shadow-md">
+      <h3 className="text-lg font-semibold text-gray-800">Registrar Movimiento de Inventario</h3>
+      
+      {error && <Alert type="error" message={error} />}
 
-        <Select
-          label="Tipo de Movimiento"
-          value={type}
-          onChange={(e) => setType(e.target.value)}
-          options={movementTypes}
-          required
-        />
+      <Select
+        label="Producto"
+        options={productOptions}
+        value={selectedProductId}
+        onChange={(e) => setSelectedProductId(e.target.value)}
+        placeholder="-- Selecciona un producto --"
+        required
+      />
 
-        <Input
-          label="Cantidad"
-          type="number"
-          min="1"
-          value={quantity}
-          onChange={(e) => setQuantity(e.target.value)}
-          placeholder="Ej. 10"
-          required
-        />
-
-        <div className="flex justify-end pt-2">
-          <Button type="submit" variant="primary">
-            Registrar Movimiento
-          </Button>
+      {selectedProduct && (
+        <div className="p-3 bg-blue-50 text-blue-800 rounded-md text-sm">
+          <strong>Stock Actual:</strong> {selectedProduct.stock} unidades
         </div>
-      </form>
-    </Card>
+      )}
+
+      <Select
+        label="Tipo de Movimiento"
+        options={typeOptions}
+        value={type}
+        onChange={(e) => setType(e.target.value)}
+        required
+      />
+
+      <Input
+        label="Cantidad"
+        type="number"
+        min="1"
+        value={quantity}
+        onChange={(e) => setQuantity(e.target.value)}
+        placeholder="Ej. 10"
+        required
+      />
+
+      <Button type="submit" variant="primary" loading={loading} className="w-full">
+        Registrar Movimiento
+      </Button>
+    </form>
   );
 };
 
