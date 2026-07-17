@@ -1,17 +1,24 @@
 import app from './app.js';
+import { connectDatabase } from './config/database.js';
 import { env } from './config/env.js';
 
-const server = app.listen(env.port, () => {
-  console.log('service-auth running on http://localhost:' + env.port);
-});
+async function bootstrap() {
+  await connectDatabase();
 
-function shutdown(signal) {
-  console.log('\n' + signal + ' received. Closing service-auth...');
-
-  server.close(() => {
-    process.exit(0);
+  const server = app.listen(env.port, () => {
+    console.log('service-auth running on http://localhost:' + env.port);
   });
+
+  function shutdown(signal) {
+    console.log('\n' + signal + ' received. Closing service-auth...');
+
+    server.close(() => {
+      process.exit(0);
+    });
+  }
+
+  process.on('SIGINT', () => shutdown('SIGINT'));
+  process.on('SIGTERM', () => shutdown('SIGTERM'));
 }
 
-process.on('SIGINT', () => shutdown('SIGINT'));
-process.on('SIGTERM', () => shutdown('SIGTERM'));
+bootstrap();
