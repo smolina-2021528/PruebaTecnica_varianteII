@@ -15,20 +15,18 @@ app.disable('x-powered-by');
 
 app.use(
   cors({
-    origin: env.clientUrl,
+    origin: env.clientUrls,
     credentials: true,
-  })
+  }),
 );
 
 app.use(express.json());
 
-// Rutas públicas
 app.use('/api/health', healthRoutes);
 
-// Rutas protegidas
 app.use('/api/products', productRoutes);
 app.use('/api/categories', categoryRoutes);
-app.use('/api', movementRoutes);   // /api/entries, /api/outputs, /api/movements
+app.use('/api', movementRoutes);
 
 app.use(notFound);
 app.use(errorHandler);

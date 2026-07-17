@@ -12,7 +12,7 @@ app.disable('x-powered-by');
 
 app.use(
   cors({
-    origin: env.clientUrl,
+    origin: env.clientUrls,
     credentials: true,
   }),
 );
